@@ -1,0 +1,13 @@
+{
+  "name": "freelancer-project",
+  "version": "1.0.0",
+  "description": "Freelancer project with time tracking",
+  "scripts": {
+    "generate-report": "node .github/scripts/generate-time-report.js"
+  },
+  "dependencies": {
+    "axios": "^1.6.7",
+    "date-fns": "^3.3.1",
+    "fs-extra": "^11.2.0"
+  }
+}

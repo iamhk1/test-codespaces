@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WakaTime Report Viewer</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      line-height: 1.6;
+      color: #333;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    h1, h2, h3 {
+      color: #0366d6;
+    }
+    .card {
+      background: #f6f8fa;
+      border-radius: 6px;
+      padding: 16px;
+      margin-bottom: 16px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+    }
+    .summary {
+      display: flex;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+    .summary-card {
+      flex: 1;
+      min-width: 200px;
+      background: white;
+      padding: 16px;
+      border-radius: 4px;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+    }
+    .chart-container {
+      height: 300px;
+      margin: 20px 0;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    th, td {
+      text-align: left;
+      padding: 8px;
+      border-bottom: 1px solid #ddd;
+    }
+    th {
+      background-color: #f1f1f1;
+    }
+    .file-upload {
+      margin-bottom: 20px;
+    }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+  <h1>WakaTime Report Viewer</h1>
+  
+  <div class="file-upload card">
+    <h2>Upload Report</h2>
+    <p>Select a WakaTime report JSON file to visualize:</p>
+    <input type="file" id="reportUpload" accept=".json">
+  </div>
+  
+  <div id="reportContainer" style="display: none;">
+    <div class="card">
+      <h2>Time Summary</h2>
+      <div class="summary" id="summary">
+        <!-- Summary cards will be inserted here -->
+      </div>
+    </div>
+    
+    <div class="card">
+      <h2>Daily Activity</h2>
+      <div class="chart-container">
+        <canvas id="dailyChart"></canvas>
+      </div>
+    </div>
+    
+    <div class="card">
+      <h2>Language Breakdown</h2>
+      <div class="chart-container">
+        <canvas id="languageChart"></canvas>
+      </div>
+    </div>
+    
+    <div class="card">
+      <h2>Projects</h2>
+      <table id="projectsTable">
+        <thead>
+          <tr>
+            <th>Project</th>
+            <th>Hours</th>
+            <th>Percentage</th>
+          </tr>
+        </thead>
+        <tbody>
+          <!-- Project data will be inserted here -->
+        </tbody>
+      </table>
+    </div>
+  </div>
+  
+  <script>
+    document.getElementById('reportUpload').addEventListener('change', handleFileUpload);
+    
+    let dailyChart = null;
+    let languageChart = null;
+    
+    function handleFileUpload(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          const reportData = JSON.parse(e.target.result);
+          renderReport(reportData);
+          document.getElementById('reportContainer').style.display = 'block';
+        } catch (error) {
+          alert('Error parsing report file: ' + error.message);
+        }
+      };
+      reader.readAsText(file);
+    }
+    
+    function renderReport(reportData) {
+      if (!reportData.data || !Array.isArray(reportData.data)) {
+        alert('Invalid report format');
+        return;
+      }
+      
+      // Render summary
+      renderSummary(reportData);
+      
+      // Render daily chart
+      renderDailyChart(reportData);
+      
+      // Render language breakdown
+      renderLanguageChart(reportData);
+      
+      // Render projects table
+      renderProjectsTable(reportData);
+    }
+    
+    function renderSummary(reportData) {
+      const summaryContainer = document.getElementById('summary');
+      summaryContainer.innerHTML = '';
+      
+      // Calculate total time across all days
+      let totalSeconds = 0;
+      let totalDays = reportData.data.length;
+      
+      reportData.data.forEach(day => {
+        totalSeconds += day.grand_total.total_seconds || 0;
+      });
+      
+      const hours = Math.floor(totalSeconds / 3600);
+      const minutes = Math.floor((totalSeconds % 3600) / 60);
+      
+      // Create summary cards
+      const summaryCards = [
+        {
+          title: 'Total Time',
+          value: `${hours}h ${minutes}m`
+        },
+        {
+          title: 'Daily Average',
+          value: `${Math.round(totalSeconds / totalDays / 36) / 100}h`
+        },
+        {
+          title: 'Days Tracked',
+          value: totalDays
+        }
+      ];
+      
+      summaryCards.forEach(card => {
+        const cardElement = document.createElement('div');
+        cardElement.className = 'summary-card';
+        cardElement.innerHTML = `
+          <h3>${card.title}</h3>
+          <p style="font-size: 1.8em; font-weight: bold;">${card.value}</p>
+        `;
+        summaryContainer.appendChild(cardElement);
+      });
+    }
+    
+    function renderDailyChart(reportData) {
+      const ctx = document.getElementById('dailyChart').getContext('2d');
+      
+      // Prepare data
+      const days = reportData.data.map(day => day.range.date);
+      const hours = reportData.data.map(day => 
+        Math.round((day.grand_total.total_seconds || 0) / 3600 * 10) / 10
+      );
+      
+      // Destroy previous chart if it exists
+      if (dailyChart) {
+        dailyChart.destroy();
+      }
+      
+      // Create chart
+      dailyChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: days,
+          datasets: [{
+            label: 'Hours',
+            data: hours,
+            backgroundColor: 'rgba(54, 162, 235, 0.7)',
+            borderColor: 'rgba(54, 162, 235, 1)',
+            borderWidth: 1
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            y: {
+              beginAtZero: true,
+              title: {
+                display: true,
+                text: 'Hours'
+              }
+            }
+          }
+        }
+      });
+    }
+    
+    function renderLanguageChart(reportData) {
+      const ctx = document.getElementById('languageChart').getContext('2d');
+      
+      // Aggregate language data across all days
+      const languageMap = {};
+      
+      reportData.data.forEach(day => {
+        if (day.languages) {
+          day.languages.forEach(lang => {
+            if (!languageMap[lang.name]) {
+              languageMap[lang.name] = 0;
+            }
+            languageMap[lang.name] += lang.total_seconds || 0;
+          });
+        }
+      });
+      
+      // Convert to arrays
+      const languages = Object.keys(languageMap);
+      const times = Object.values(languageMap).map(seconds => 
+        Math.round(seconds / 3600 * 10) / 10
+      );
+      
+      // Generate colors
+      const backgroundColors = languages.map((_, i) => 
+        `hsl(${i * (360 / languages.length)}, 70%, 65%)`
+      );
+      
+      // Destroy previous chart if it exists
+      if (languageChart) {
+        languageChart.destroy();
+      }
+      
+      // Create chart
+      languageChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+          labels: languages,
+          datasets: [{
+            data: times,
+            backgroundColor: backgroundColors,
+            borderWidth: 1
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              position: 'right',
+            }
+          }
+        }
+      });
+    }
+    
+    function renderProjectsTable(reportData) {
+      const tableBody = document.querySelector('#projectsTable tbody');
+      tableBody.innerHTML = '';
+      
+      // Aggregate project data across all days
+      const projectMap = {};
+      let totalSeconds = 0;
+      
+      reportData.data.forEach(day => {
+        if (day.projects) {
+          day.projects.forEach(project => {
+            if (!projectMap[project.name]) {
+              projectMap[project.name] = 0;
+            }
+            projectMap[project.name] += project.total_seconds || 0;
+            totalSeconds += project.total_seconds || 0;
+          });
+        }
+      });
+      
+      // Sort projects by time (descending)
+      const sortedProjects = Object.entries(projectMap)
+        .sort((a, b) => b[1] - a[1])
+        .map(([name, seconds]) => ({
+          name,
+          hours: Math.round(seconds / 3600 * 10) / 10,
+          percentage: Math.round(seconds / totalSeconds * 1000) / 10
+        }));
+      
+      // Render table rows
+      sortedProjects.forEach(project => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td>${project.name}</td>
+          <td>${project.hours} hrs</td>
+          <td>${project.percentage}%</td>
+        `;
+        tableBody.appendChild(row);
+      });
+    }
+  </script>
+</body>
+</html>

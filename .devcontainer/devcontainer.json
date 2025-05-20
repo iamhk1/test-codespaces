@@ -1,0 +1,21 @@
+{
+  "name": "Freelancer Project",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "wakatime.vscode-wakatime"
+      ],
+      "settings": {
+        "wakatime.apiKey": "${localEnv:WAKATIME_API_KEY}",
+        "wakatime.disableFileWatching": false,
+        "wakatime.disableHeartbeats": false,
+        "wakatime.disableOfflineQueue": false
+      }
+    }
+  },
+  "postCreateCommand": "bash ./.devcontainer/scripts/setup-wakatime.sh",
+  "postStartCommand": "bash ./.devcontainer/scripts/post-start.sh",
+  "features": {
+    "ghcr.io/devcontainers/features/node:1": {}
+  }
+}

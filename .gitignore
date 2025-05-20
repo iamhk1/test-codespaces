@@ -1,0 +1,22 @@
+# Dependencies
+node_modules/
+
+# WakaTime local files
+.wakatime-project
+.wakatime.cfg
+
+# Time reports
+time-reports/
+
+# Environment variables
+.env
+.env.local
+
+# IDE files
+.vscode/*
+!.vscode/extensions.json
+.idea/
+
+# System files
+.DS_Store
+Thumbs.db
